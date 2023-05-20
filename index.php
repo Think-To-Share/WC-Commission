@@ -3,7 +3,7 @@
 Plugin Name: New Coupon Apply Commission
 Description: Create new coupon during order placed
 Author: Think To Share
-Version: 0.1
+Version: 0.0.1
 */
 require_once( ABSPATH . 'wp-admin/includes/upgrade.php' ); 
 global $wac_version;

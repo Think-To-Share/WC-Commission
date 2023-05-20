@@ -33,7 +33,7 @@ register_uninstall_hook(__FILE__,'wac_uninstall');
 function wc_commission_create_new_coupon($order_id) {
 
     $order = wc_get_order( $order_id );
-    if($order->get_status() == 'Completed')
+    if($order->get_status() == 'wc-completed')
     {
         apply_filters('wc_commission_create_coupon', $order_id);
         apply_filters('wc_commission_create_commission');
@@ -56,33 +56,17 @@ if(!function_exists('create_coupon')) {
 
         $coupon_code = wp_generate_password(8, false).$user_id;
         
-
-                // Set the coupon data
-                $coupon_data = array(
-                    'post_author' => $user_id,
-                    'post_title' => $coupon_code,
-                    'post_status' => 'publish',
-                    'post_name' => strtolower($coupon_code),
-                    'post_type' => 'shop_coupon',
-                );
-
-                // Insert the coupon data as a post
-                $coupon_id = wp_insert_post( $coupon_data );
-
-                $coupon_url = add_query_arg( array(
-                    'post_type' => 'shop_coupon',
-                    'p' => $coupon_id
-                ), get_site_url() );
-                $wpdb->update($wpdb->posts, ['guid' => $coupon_url], ['ID' => $coupon_id]);
-                // Add the coupon meta data
-                update_post_meta( $coupon_id, 'discount_type', 'percent' );
-                update_post_meta( $coupon_id, 'coupon_amount', '10' );
-                update_post_meta( $coupon_id, 'individual_use', 'yes' );
-                update_post_meta( $coupon_id, 'product_ids', implode(',',$product_ids));
-                update_post_meta( $coupon_id, 'exclude_product_ids', '' );
-                update_post_meta( $coupon_id, 'usage_limit_per_user', '1' );
-                update_post_meta( $coupon_id, 'expiry_date', strtotime( '+1 month' ) );
-                update_post_meta( $coupon_id, 'commission_eligible', true);
+        $coupon = new WC_Coupon();
+        $coupon->set_code($coupon_code);
+        $coupon->set_discount_type( 'percent' );
+        $coupon->set_amount( 10 );
+        $coupon->set_individual_use( true );
+        $coupon->set_product_ids( $product_ids) ;
+        $coupon->set_usage_limit_per_user( 1 );
+        $coupon->set_date_expires( strtotime( '+1 month' ) );
+        $coupon_id = $coupon->save();  
+        
+        update_post_meta( $coupon_id, 'commission_eligible', $user_id);
     }
 }
 
@@ -116,23 +100,24 @@ add_filter('wc_commission_create_commission','wc_commission_create_commission_ta
 
 
 //Check if the order is placed with valid coupon or not
+
 function wc_commission_check_order_coupon( $order_id ) {
+
     $order = wc_get_order( $order_id );
-    $applied_coupons = $order->get_used_coupons();
-
+    $applied_coupons = $order->get_coupon_codes();
     foreach($applied_coupons as $applied_coupon) {
-        $coupon = new WC_Coupon($applied_coupon);
-        $metas = $coupon->get_meta_data();
-
+       $coupon = new WC_Coupon($applied_coupon);
+       $metas = $coupon->get_meta_data();
         foreach($metas as $meta) {
             $data = $meta->get_data();
-            if(
-                $data['key'] === 'commission_eligible' &&
-                $data['value'] == true
-            ) {
-                apply_filters('wc_commission_apply_commission', $order, $coupon);
+           if(
+                $data['key'] === 'commission_eligible') 
+                {
+                   
+                   apply_filters('wc_commission_apply_commission', $order, $data['value']);
+
+                }
             }
-        }
     }
 }
  
@@ -142,8 +127,7 @@ add_action('woocommerce_thankyou', 'wc_commission_check_order_coupon');
 
 if(! function_exists('add_commission_for_order')) {
     
-    function add_commission_for_order($order, $coupon) {
-        $user_id = get_post($coupon->get_id())->post_author;
+    function add_commission_for_order($order, $user_id) {
         $total = $order->calculate_totals();
         $commission = $total * 10 / 100;  
         global $wpdb;

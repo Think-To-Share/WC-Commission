@@ -1,4 +1,5 @@
 <?php
+
 function wc_create_withdrawal_post_type() {
     $args = array(
         'labels' => array(

@@ -42,12 +42,12 @@ function wc_commission_withdrawal_content() {
 add_action( 'woocommerce_account_withdrawal_endpoint', 'wc_commission_withdrawal_content' );
 
 function my_custom_withdrawal_form() {
-    // global $wpdb;
-    // $user_id = get_current_user_id();
-    // $commission_amount = $wpdb->get_var( $wpdb->prepare( "
-    //     SELECT commission_amount
-    //     FROM wp_commissions
-    //     WHERE user_id = %d", $user_id ) );
+    global $wpdb;
+    $user_id = get_current_user_id();
+    $commission_amount = $wpdb->get_var( $wpdb->prepare( "
+        SELECT commission_amount
+        FROM wp_commissions
+        WHERE user_id = %d", $user_id ) );
     
-    // include WC_COMMISSION_PLUGIN_PATH.'/templates/pages/withdrawal.php';
+    include WC_COMMISSION_PLUGIN_PATH.'/templates/pages/withdrawal.php';
 }

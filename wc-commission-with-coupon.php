@@ -120,8 +120,8 @@ function wc_commission_check_commission( $order ) {
     $coupon = new WC_Coupon($applied_coupons[0]);
     $metas = $coupon->get_meta_data();
     foreach($metas as $meta) {
-        if($data['key'] === 'commission_eligible') {
-            return $data['value'];
+        if($meta->key === 'commission_eligible') {
+            return $meta->value;
         }
     }
 

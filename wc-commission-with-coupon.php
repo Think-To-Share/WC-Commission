@@ -1,31 +1,34 @@
 <?php
 /**
  * Plugin Name: WooCommerce Coupon Commission
- * Description: Create new coupon during order placed
+ * Description: Create a new coupon during order placed
  * Author: Think To Share
  * Text Domain: wc-commission
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Version: 1.0.0
+ * Version: 1.0.2
  */
 
-
-// Exit if accessed directly
-if (!defined('ABSPATH')) {
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
 // Define plugin path.
-define('WC_COMMISSION_PLUGIN_PATH', plugin_dir_path(__FILE__));
+define( 'WC_COMMISSION_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
-// Check if WooCommerce is active.
+/**
+ * Check if WooCommerce is active.
+ *
+ * @return bool True if WooCommerce is active, false otherwise.
+ */
 function wc_commission_check_woocommerce() {
-    include_once(ABSPATH . 'wp-admin/includes/plugin.php');
-    return is_plugin_active('woocommerce/woocommerce.php');
+    include_once ABSPATH . 'wp-admin/includes/plugin.php';
+    return is_plugin_active( 'woocommerce/woocommerce.php' );
 }
 
 /**
- * Function to create commissions table.
+ * Create the commissions table.
  */
 function wc_commission_create_commissions_table() {
     global $wpdb;
@@ -41,72 +44,85 @@ function wc_commission_create_commissions_table() {
         FOREIGN KEY (user_id) REFERENCES {$wpdb->prefix}users(ID)
     ) $charset_collate;";
 
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    dbDelta($sql);
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( $sql );
 }
 
 /**
- * Function to run when the plugin is activated.
+ * Run when the plugin is activated.
  */
 function wc_commission_activate() {
-    if (wc_commission_check_woocommerce()) {
+    if ( wc_commission_check_woocommerce() ) {
         wc_commission_create_commissions_table();
     } else {
-        deactivate_plugins(plugin_basename(__FILE__));
-        wp_die('WC Commission requires WooCommerce to be installed and active.');
+        deactivate_plugins( plugin_basename( __FILE__ ) );
+        wp_die( 'WC Commission requires WooCommerce to be installed and active.' );
     }
 }
 
-register_activation_hook(__FILE__, 'wc_commission_activate');
+register_activation_hook( __FILE__, 'wc_commission_activate' );
 
 /**
  * Create the coupon & apply commission when order status changes to completed.
+ *
+ * @param int    $order_id   The order ID.
+ * @param string $old_status The old order status.
+ * @param string $new_status The new order status.
  */
-function wc_commission_order_status_changed($order_id, $old_status, $new_status) {
-    if ($new_status === 'completed') {
-        // Access order object
-        $order = wc_get_order($order_id);
+function wc_commission_order_status_changed( $order_id, $old_status, $new_status ) {
+    if ( 'completed' === $new_status ) {
+        // Access order object.
+        $order = wc_get_order( $order_id );
 
-        // Trigger wc_commission_create_coupon filter
-        apply_filters('wc_commission_create_coupon', $order);
-        
-        // Check and apply commission
-        if($commission_user = apply_filters('wc_commission_check_commission', $order)) {
-            // Trigger wc_commission_create_coupon filter
-            apply_filters('wc_commission_apply_commission', $order, $commission_user);
+        // Validate order object.
+        if ( ! $order ) {
+            return;
+        }
+
+        // Trigger wc_commission_create_coupon filter.
+        $coupon_code = apply_filters( 'wc_commission_create_coupon', $order );
+
+        // Check and apply commission.
+        if ( $commission_user = apply_filters( 'wc_commission_check_commission', $order ) ) {
+            // Trigger wc_commission_apply_commission filter.
+            apply_filters( 'wc_commission_apply_commission', $order, $commission_user );
         }
     }
 }
 
-add_action('woocommerce_order_status_changed', 'wc_commission_order_status_changed', 10, 3);
+add_action( 'woocommerce_order_status_changed', 'wc_commission_order_status_changed', 10, 3 );
 
 /**
- * Function to create a new coupon when an order is completed.
+ * Create a new coupon when an order is completed.
+ *
+ * @param WC_Order $order The WooCommerce order object.
+ * @return string         The new coupon code.
  */
 function wc_commission_create_coupon( $order ) {
-    // You can add your custom logic for generating a coupon code here.
+    // Generate coupon code.
     $coupon_code = 'COMM-' . strtoupper( wp_generate_password( 8, false ) );
 
     $user_id = $order->get_user_id();
     $line_items = $order->get_items();
-    $product_ids = [];
+    $product_ids = array();
+
     foreach ( $line_items as $line_item ) {
         $product_ids[] = $line_item->get_product_id();
     }
-    
-    $coupon = new WC_Coupon();
-    $coupon->set_code($coupon_code);
-    $coupon->set_discount_type('percent');
-    $coupon->set_amount( 10 );
-    $coupon->set_individual_use(true);
-    $coupon->set_product_ids($product_ids) ;
-    $coupon->set_usage_limit_per_user(1);
-    $coupon->set_date_expires( strtotime('+1 month') );
-    $coupon_id = $coupon->save();
-    
-    update_post_meta( $coupon_id, 'commission_eligible', $user_id);
 
-    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon_code );
+    $coupon = new WC_Coupon();
+    $coupon->set_code( $coupon_code );
+    $coupon->set_discount_type( 'percent' );
+    $coupon->set_amount( 10 );
+    $coupon->set_individual_use( true );
+    $coupon->set_product_ids( $product_ids );
+    $coupon->set_usage_limit_per_user( 1 );
+    $coupon->set_date_expires( strtotime( '+1 month' ) );
+    $coupon_id = $coupon->save();
+
+    update_post_meta( $coupon_id, 'commission_eligible', $user_id );
+
+    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon );
 
     return $coupon_code;
 }
@@ -114,18 +130,22 @@ function wc_commission_create_coupon( $order ) {
 add_filter( 'wc_commission_create_coupon', 'wc_commission_create_coupon', 10, 1 );
 
 /**
- * Check commission eligibility for the given WooCommerce Order
+ * Check commission eligibility for the given WooCommerce Order.
+ *
+ * @param WC_Order $order The WooCommerce order object.
+ * @return mixed          The user ID for the commission or false if no matching meta key is found.
  */
 function wc_commission_check_commission( $order ) {
     $applied_coupons = $order->get_coupon_codes();
-    if(! count($applied_coupons)) {
-        return;
+    if ( ! count( $applied_coupons ) ) {
+        return false;
     }
 
-    $coupon = new WC_Coupon($applied_coupons[0]);
+    $coupon = new WC_Coupon( $applied_coupons[0] );
     $metas = $coupon->get_meta_data();
-    foreach($metas as $meta) {
-        if($meta->key === 'commission_eligible') {
+
+    foreach ( $metas as $meta ) {
+        if ( 'commission_eligible' === $meta->key ) {
             return $meta->value;
         }
     }
@@ -136,7 +156,10 @@ function wc_commission_check_commission( $order ) {
 add_filter( 'wc_commission_check_commission', 'wc_commission_check_commission', 10, 1 );
 
 /**
- * Apply commission for the given WooCommerce Order
+ * Apply commission for the given WooCommerce Order.
+ *
+ * @param WC_Order $order  The WooCommerce order object.
+ * @param int      $user_id The user ID to apply the commission to.
  */
 function wc_commission_apply_commission( $order, $user_id ) {
     global $wpdb;
@@ -150,7 +173,7 @@ function wc_commission_apply_commission( $order, $user_id ) {
 
     // Check if the user has existing commissions.
     $commission_record = $wpdb->get_row(
-        $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
+        $wpdb->prepare( "SELECT * FROM $table_name WHERE user_id = %d", $user_id )
     );
 
     // Update the existing commission or insert a new one.
@@ -182,5 +205,5 @@ function wc_commission_apply_commission( $order, $user_id ) {
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );
 
-// Including extra files
-require_once(WC_COMMISSION_PLUGIN_PATH.'includes/withdrawal.php');
+// Including extra files.
+require_once WC_COMMISSION_PLUGIN_PATH . 'includes/withdrawal.php';

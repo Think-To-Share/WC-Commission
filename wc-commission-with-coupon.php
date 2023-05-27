@@ -106,7 +106,7 @@ function wc_commission_create_coupon( $order ) {
     
     update_post_meta( $coupon_id, 'commission_eligible', $user_id);
 
-    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon );
+    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon_code );
 
     return $coupon_code;
 }

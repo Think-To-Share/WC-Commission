@@ -12,10 +12,6 @@ class WC_Email_Commission_Coupon_Code_Send extends WC_Email {
         $this->description    = 'None';
         $this->template_base  = WC_COMMISSION_PLUGIN_PATH.'/templates/';
         $this->template_html  = 'emails/coupon_code_send.php';
-        $this->placeholders   = array(
-            '{order_date}'   => '',
-            '{order_number}' => '',
-        );
         
         // Triggers for this email.
         add_action( 'woocommerce_commission_coupon_created_notification', array( $this, 'trigger' ), 10, 3);
@@ -40,10 +36,8 @@ class WC_Email_Commission_Coupon_Code_Send extends WC_Email {
         }
 
         if ( is_a( $order, 'WC_Order' ) ) {
-            $this->object                         = $order;
-            $this->recipient                      = $this->object->get_billing_email();
-            $this->placeholders['{order_date}']   = wc_format_datetime( $this->object->get_date_created() );
-            $this->placeholders['{order_number}'] = $this->object->get_order_number();
+            $this->object    = $order;
+            $this->recipient = $this->object->get_billing_email();
         }
 
         if ( $this->is_enabled() && $this->get_recipient() ) {
@@ -69,11 +63,11 @@ class WC_Email_Commission_Coupon_Code_Send extends WC_Email {
     }
 
     public function get_default_heading() {
-        return __( 'Congratulations! You Earned a Coupon', 'wc_commission' );
+        return __( 'Congratulations! You Earned a Coupon', 'wc-commission' );
     }
 
     public function get_default_additional_content() {
-        return __( 'Thanks for shopping with us.', 'wc_commission' );
+        return __( 'Thanks for shopping with us.', 'wc-commission' );
     }
 } 
 

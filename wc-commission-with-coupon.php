@@ -3,6 +3,7 @@
  * Plugin Name: New Coupon Apply Commission
  * Description: Create new coupon during order placed
  * Author: Think To Share
+ * Text Domain: wc-commission
  * Version: 1.0.0
  */
 
@@ -103,6 +104,8 @@ function wc_commission_create_coupon( $order ) {
     
     update_post_meta( $coupon_id, 'commission_eligible', $user_id);
 
+    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon );
+
     return $coupon_code;
 }
 
@@ -177,4 +180,5 @@ function wc_commission_apply_commission( $order, $user_id ) {
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );
 
+// Including extra files
 require_once(WC_COMMISSION_PLUGIN_PATH.'includes/withdrawal.php');

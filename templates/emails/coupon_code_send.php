@@ -4,8 +4,8 @@
  */
 do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
 
-<p><?php printf( esc_html__( 'Hi %s,', 'wc_commission' ), esc_html( $order->get_billing_first_name() ) ); ?></p>
-<p><?php esc_html_e( 'You have earned a new Commission Coupon.', 'wc_commission' ); ?></p>
+<p><?php printf( esc_html__( 'Hi %s,', 'wc-commission' ), esc_html( $order->get_billing_first_name() ) ); ?></p>
+<p><?php esc_html_e( 'You have earned a new Commission Coupon.', 'wc-commission' ); ?></p>
 
 <h2>
     <?php echo wp_kses_post(sprintf(__('[Coupon Code: %s]'), $coupon)) ?>

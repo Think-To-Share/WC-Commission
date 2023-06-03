@@ -29,7 +29,7 @@ add_filter('manage_withdrawal_posts_columns', 'wc_commission_withdrawal_column_h
 function wc_commission_withdrawal_custom_column_data($column_name, $post_id) {
     switch ($column_name) {
         case 'status':
-            echo get_field('status', $post_id)
+            echo get_field('status', $post_id);
             break;
     }
 }
@@ -78,7 +78,7 @@ function wc_commission_withdrawal_form_submit() {
         return;
     }
 
-    $withdrawal_amount = floatval( $_POST['withdrawal_amount'] );
+    $withdrawal_amount = floatval( wc_clean( wp_unslash( $_POST['withdrawal_amount'] ) ) );
 
     global $wpdb;
     $user_id = get_current_user_id();
@@ -113,3 +113,46 @@ function wc_commission_withdrawal_form_submit() {
 }
 
 add_action( 'template_redirect', 'wc_commission_withdrawal_form_submit' );
+
+function wc_commission_edit_bank_details() {
+    $user = wp_get_current_user();
+
+    wc_get_template( 'pages/update-bank-details.php', [
+        'user' => $user,
+    ], '', WC_COMMISSION_PLUGIN_PATH.'/templates/' );
+}
+
+add_action( 'woocommerce_edit_account_form', 'wc_commission_edit_bank_details' );
+
+function wc_commission_update_bank_details( $user_id ) {
+    $has_error = false;
+
+    if ( isset( $_POST['bank_account_name'] ) ) {
+        $bank_account_name = sanitize_text_field( $_POST['bank_account_name'] );
+        if ( empty( $bank_account_name ) ) {
+            wc_add_notice( __( 'Please provide a valid account name.', 'wc-commission' ), 'error' );
+        } else {
+            update_user_meta( $user_id, 'bank_account_name', $bank_account_name );
+        }
+    }
+
+    if ( isset( $_POST['bank_account_number'] ) ) {
+        $bank_account_number = sanitize_text_field( $_POST['bank_account_number'] );
+        if ( !ctype_digit( $bank_account_number ) || strlen( $bank_account_number ) < 5 ) {
+            wc_add_notice( __( 'Please provide a valid account number.', 'wc-commission' ), 'error' );
+        } else {
+            update_user_meta( $user_id, 'bank_account_number', sanitize_text_field( $_POST['bank_account_number'] ) );
+        }
+    }
+
+    if ( isset( $_POST['bank_account_ifsc'] ) ) {
+        $bank_account_ifsc = sanitize_text_field( $_POST['bank_account_ifsc'] );
+        if ( !preg_match( "/^[A-Za-z]{4}[0-9]{7}$/", $bank_account_ifsc ) ) {
+            wc_add_notice( __( 'Please provide a valid IFSC code.', 'wc-commission' ), 'error' );
+        }else {
+            update_user_meta( $user_id, 'bank_account_ifsc', sanitize_text_field( $_POST['bank_account_ifsc'] ) );
+        }
+    }   
+}
+
+add_action( 'woocommerce_save_account_details', 'wc_commission_update_bank_details', 12, 1 );

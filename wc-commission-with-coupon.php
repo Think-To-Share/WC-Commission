@@ -75,7 +75,7 @@ function wc_commission_order_status_changed( $order_id, $old_status, $new_status
         $order = wc_get_order( $order_id );
 
         // Validate order object.
-        if ( ! $order ) {
+        if ( ! $order && ! is_a($order, 'WC_Order') ) {
             return;
         }
 
@@ -122,7 +122,7 @@ function wc_commission_create_coupon( $order ) {
 
     update_post_meta( $coupon_id, 'commission_eligible', $user_id );
 
-    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon );
+    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon_code );
 
     return $coupon_code;
 }
@@ -204,6 +204,21 @@ function wc_commission_apply_commission( $order, $user_id ) {
 }
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );
+
+/**
+ * Load WooCommerce addon email classes.
+ *
+ * @param array $email_classes The existing WooCommerce email classes.
+ * @return array               The updated WooCommerce email classes including our custom email class.
+ */
+function wc_commission_woocommerce_email_classes($email_classes) {
+    require_once(WC_COMMISSION_PLUGIN_PATH . 'includes/emails/class-wc-email-commission-coupon-code-send.php');
+    $email_classes['WC_Email_Commission_Coupon_Code_Send'] = new WC_Email_Commission_Coupon_Code_Send();
+
+    return $email_classes;
+}
+
+add_filter('woocommerce_email_classes', 'wc_commission_woocommerce_email_classes');
 
 // Including extra files.
 require_once WC_COMMISSION_PLUGIN_PATH . 'includes/withdrawal.php';

@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Define plugin path.
 define( 'WC_COMMISSION_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
+
 /**
  * Check if WooCommerce is active.
  *
@@ -26,6 +27,7 @@ function wc_commission_check_woocommerce() {
     include_once ABSPATH . 'wp-admin/includes/plugin.php';
     return is_plugin_active( 'woocommerce/woocommerce.php' );
 }
+
 
 /**
  * Create the commissions table.
@@ -48,12 +50,36 @@ function wc_commission_create_commissions_table() {
     dbDelta( $sql );
 }
 
+
+/**
+ * Create the Referral table.
+ */
+function wc_commission_create_referrals_table() {
+    global $wpdb;
+    $charset_collate = $wpdb->get_charset_collate();
+    $table_name = $wpdb->prefix . 'commissions_referrals';
+
+    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        id BIGINT(20) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        referral_code TEXT NOT NULL,
+        user_id BIGINT(20) UNSIGNED NOT NULL,
+        product_ids TEXT NOT NULL,
+        expiration_date DATE,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES {$wpdb->prefix}users(ID)
+    ) $charset_collate;";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( $sql );
+}
+
 /**
  * Run when the plugin is activated.
  */
 function wc_commission_activate() {
     if ( wc_commission_check_woocommerce() ) {
-        wc_commission_create_commissions_table();
+        wc_commission_create_commissions_table(); 
+        wc_commission_create_referrals_table();
     } else {
         deactivate_plugins( plugin_basename( __FILE__ ) );
         wp_die( 'WC Commission requires WooCommerce to be installed and active.' );
@@ -61,6 +87,20 @@ function wc_commission_activate() {
 }
 
 register_activation_hook( __FILE__, 'wc_commission_activate' );
+
+
+/* add js code*/
+
+
+function wc_commission_init() {
+    wp_enqueue_script( 'js-cookie', WC_COMMISSION_PLUGIN_PATH. 'assets/js/js.cookie.min.js', array(), '3.0.5', true );
+    wp_enqueue_script( 'wc_commission_set_cookie', WC_COMMISSION_PLUGIN_PATH. 'assets/js/set_cookie.js', array(), '1.0.0', true );
+}
+add_action( 'init', 'wc_commission_init' );
+
+/* add js code*/
+
+
 
 /**
  * Create the coupon & apply commission when order status changes to completed.
@@ -70,65 +110,129 @@ register_activation_hook( __FILE__, 'wc_commission_activate' );
  * @param string $new_status The new order status.
  */
 function wc_commission_order_status_changed( $order_id, $old_status, $new_status ) {
-    if ( 'completed' === $new_status ) {
-        // Access order object.
-        $order = wc_get_order( $order_id );
 
+    
+
+    if ( 'completed' === $new_status ) {
+
+        global $wpdb;
+        // Access order object.
+        $referral_code = 'REFF-' . strtoupper( wp_generate_password( 8, false ) );
+        $order = wc_get_order( $order_id );
+        $product_ids = array();
+        $referral_links = array();
         // Validate order object.
         if ( ! $order && ! is_a($order, 'WC_Order') ) {
             return;
         }
 
-        // Trigger wc_commission_create_coupon filter.
-        $coupon_code = apply_filters( 'wc_commission_create_coupon', $order );
+        foreach ( $order->get_items() as $item ) {
+            $product_ids[] = $item->get_product_id();
+            $referral_links[] = array(
+                'ref_link' => $item->get_product()->get_permalink().'?ref=' . $referral_code,
+                'product_name' => $item->get_product()->get_title()
+            );
+        }
+    
 
-        // Check and apply commission.
+        $table_name = $wpdb->prefix . 'commissions_referrals';
+        $wpdb->insert(
+        $table_name,
+            array(
+                'referral_code' => $referral_code,
+                'user_id' => $order->get_user_id(),
+                'product_ids' => implode( ',', $product_ids ),
+                'expiration_date' => date( 'Y-m-d', strtotime( '+1 month' ) ),
+            ),
+            array( '%s', '%d', '%s', '%s' )
+        );
+
+       
+       // Check and apply commission.
         if ( $commission_user = apply_filters( 'wc_commission_check_commission', $order ) ) {
             // Trigger wc_commission_apply_commission filter.
-            apply_filters( 'wc_commission_apply_commission', $order, $commission_user );
+            apply_filters( 'wc_commission_apply_commission', $order, $commission_user);
         }
+
+
+       do_action( 'woocommerce_commission_referral_code_created_notification', $order->get_id(), $order, $referral_links);
     }
 }
 
 add_action( 'woocommerce_order_status_changed', 'wc_commission_order_status_changed', 10, 3 );
 
-/**
- * Create a new coupon when an order is completed.
- *
- * @param WC_Order $order The WooCommerce order object.
- * @return string         The new coupon code.
- */
-function wc_commission_create_coupon( $order ) {
-    // Generate coupon code.
-    $coupon_code = 'COMM-' . strtoupper( wp_generate_password( 8, false ) );
 
-    $user_id = $order->get_user_id();
-    $line_items = $order->get_items();
-    $product_ids = array();
 
-    foreach ( $line_items as $line_item ) {
-        $product_ids[] = $line_item->get_product_id();
+function wc_commission_check_order_placed_with_valid_cookie_ref_code( $order )
+{
+    global $wpdb;
+    $current_user_id = get_current_user_id();
+    $table_name = $wpdb->prefix . 'commissions_referrals';
+    
+    if(!(isset($_COOKIE['wc_commission_ref_code'])))
+    {
+        return;
     }
+    else{
 
-    $coupon = new WC_Coupon();
-    $coupon->set_code( $coupon_code );
-    $coupon->set_discount_type( 'percent' );
-    $coupon->set_amount( 10 );
-    $coupon->set_individual_use( true );
-    $coupon->set_product_ids( $product_ids );
-    $coupon->set_usage_limit_per_user( 1 );
-    $coupon->set_date_expires( strtotime( '+1 month' ) );
-    $coupon_id = $coupon->save();
+        $refCode = $_COOKIE['wc_commission_ref_code'];
+        $result = $wpdb->get_row(
+            $wpdb->prepare("SELECT * FROM $table_name WHERE referral_code = %s",$refCode)
+        );
 
-    update_post_meta( $coupon_id, 'commission_eligible', $user_id );
 
-    do_action( 'woocommerce_commission_coupon_created_notification', $order->get_id(), $order, $coupon_code );
+        if($result) {
 
-    return $coupon_code;
+            $order_product_ids = array();
+            foreach ( $order->get_items() as $item ) {
+            $order_product_ids[] = $item->get_product_id();
+            }
+            $referral_product_ids  = explode(',', $result->product_ids);
+            $differences = array_diff($order_product_ids, $referral_product_ids);
+
+            if(!empty($differences ))
+            {
+                return;
+            }
+
+            else{
+
+                if($result->user_id == $current_user_id)
+                {
+                    return;
+                }
+                else{
+                    $order->update_meta_data('referral_added', $result->user_id);
+                    $order->update_meta_data('referral_product_id', $referral_product_ids);
+                    $order->save(); 
+                }
+            }
+
+        }
+
+        else{
+            return;
+        }
+    }  
+
+    
 }
 
-add_filter( 'wc_commission_create_coupon', 'wc_commission_create_coupon', 10, 1 );
+add_action('woocommerce_checkout_order_created','wc_commission_check_order_placed_with_valid_cookie_ref_code',10, 1);
 
+
+function unset_commission_cookie(){
+
+    if (isset($_COOKIE['wc_commission_ref_code'])) {
+       unset($_COOKIE['wc_commission_ref_code']);
+       //print_r($_COOKIE['wc_commission_ref_code']);
+       setcookie('wc_commission_ref_code', '', time() - 3600, '/');
+    }
+
+}
+
+
+add_action('woocommerce_thankyou', 'unset_commission_cookie');
 /**
  * Check commission eligibility for the given WooCommerce Order.
  *
@@ -136,20 +240,16 @@ add_filter( 'wc_commission_create_coupon', 'wc_commission_create_coupon', 10, 1 
  * @return mixed          The user ID for the commission or false if no matching meta key is found.
  */
 function wc_commission_check_commission( $order ) {
-    $applied_coupons = $order->get_coupon_codes();
-    if ( ! count( $applied_coupons ) ) {
-        return false;
+
+    $metas = $order->get_meta_data();
+    foreach ($metas as $meta)
+    {
+       if($meta->key == 'referral_added')
+       {
+         return $meta->value;
+       }
     }
-
-    $coupon = new WC_Coupon( $applied_coupons[0] );
-    $metas = $coupon->get_meta_data();
-
-    foreach ( $metas as $meta ) {
-        if ( 'commission_eligible' === $meta->key ) {
-            return $meta->value;
-        }
-    }
-
+    
     return false;
 }
 
@@ -205,6 +305,8 @@ function wc_commission_apply_commission( $order, $user_id ) {
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );
 
+
+
 /**
  * Load WooCommerce addon email classes.
  *
@@ -212,8 +314,8 @@ add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 
  * @return array               The updated WooCommerce email classes including our custom email class.
  */
 function wc_commission_woocommerce_email_classes($email_classes) {
-    require_once(WC_COMMISSION_PLUGIN_PATH . 'includes/emails/class-wc-email-commission-coupon-code-send.php');
-    $email_classes['WC_Email_Commission_Coupon_Code_Send'] = new WC_Email_Commission_Coupon_Code_Send();
+    require_once(WC_COMMISSION_PLUGIN_PATH . 'includes/emails/class-wc-email-commission-referral-code-send.php');
+    $email_classes['WC_Email_Commission_Referral_Code_Send'] = new WC_Email_Commission_Referral_Code_Send();
 
     return $email_classes;
 }

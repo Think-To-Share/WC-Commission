@@ -2,34 +2,36 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-class WC_Email_Commission_Coupon_Code_Send extends WC_Email {
+class WC_Email_Commission_Referral_Code_Send extends WC_Email {
 
+    protected $referral_links;
+  
     public function __construct() {
 
-        $this->id  = 'coupon_send_email';
+        $this->id  = 'referral_link_send_email';
         $this->customer_email = true;
-        $this->title          = 'Coupon send by email';
+        $this->title          = 'Referral Link send by email';
         $this->description    = 'None';
         $this->template_base  = WC_COMMISSION_PLUGIN_PATH.'/templates/';
-        $this->template_html  = 'emails/coupon_code_send.php';
+        $this->template_html  = 'emails/referral_code_send.php';
         
         // Triggers for this email.
-        add_action( 'woocommerce_commission_coupon_created_notification', array( $this, 'trigger' ), 10, 3);
+        add_action( 'woocommerce_commission_referral_code_created_notification', array( $this, 'trigger' ), 10, 3);
 
         // Call parent constructor.
         parent::__construct();
     }
 
     
-    public function trigger($order_id, $order = false, $coupon = null) 
+    public function trigger($order_id, $order = false, $referral_links = null) 
     {
         $this->setup_locale();
 
-        if(is_null($coupon)) {
+        if(is_null($referral_links)) {
             return;
         }
 
-        $this->coupon = $coupon;
+        $this->referral_links = $referral_links;
 
         if ( $order_id && ! is_a( $order, 'WC_Order' ) ) {
             $order = wc_get_order( $order_id );
@@ -57,13 +59,17 @@ class WC_Email_Commission_Coupon_Code_Send extends WC_Email {
                 'plain_text'         => false,
                 'additional_content' => $this->get_additional_content(),
                 'email'              => $this,
-                'coupon'             => $this->coupon,
+                'referral_links'     => $this->referral_links,
             ), '', $this->template_base
         );
     }
 
+    public function get_default_subject() {
+        return __( 'New Referral Link for Commission', 'wc-commission' );
+    }
+
     public function get_default_heading() {
-        return __( 'Congratulations! You Earned a Coupon', 'wc-commission' );
+        return __( 'Congratulations! You have earned some referral link', 'wc-commission' );
     }
 
     public function get_default_additional_content() {

@@ -192,46 +192,79 @@ add_filter( 'wc_commission_create_referral_code', 'wc_commission_create_referral
  * @param WC_Order $order  The WooCommerce order object.
  * @param int      $user_id The user ID to apply the commission to.
  */
-function wc_commission_apply_commission( $order, $user_id ) {
+function wc_commission_apply_commission( $order, $referral_added_id ) {
     global $wpdb;
+    $table_name = $wpdb->prefix . 'commissions_referrals';
+    $totals = array();
+    $perticular_matched_products = array();
+    $product_ids = array();
 
-    // Calculate commission.
-    $total = $order->get_total();
-    $commission = $total * 10 / 100;
+    foreach ( $order->get_items() as $item ) {
+        $product_ids[] = $item->get_product_id();
+    }
 
-    // Prepare table name.
-    $table_name = $wpdb->prefix . 'commissions';
+    
 
-    // Check if the user has existing commissions.
-    $commission_record = $wpdb->get_row(
-        $wpdb->prepare( "SELECT * FROM $table_name WHERE user_id = %d", $user_id )
+    $referal_check_record = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$table_name} WHERE id = %d",
+            $referral_added_id
+        )
     );
 
-    // Update the existing commission or insert a new one.
-    if ( $commission_record ) {
-        $new_commission = $commission_record->commission_amount + $commission;
+   
 
-        $wpdb->update(
-            $table_name,
-            array(
-                'commission_amount' => $new_commission,
-            ),
-            array(
-                'user_id' => $user_id,
-            ),
-            array( '%f' ),
-            array( '%d' )
-        );
-    } else {
-        $wpdb->insert(
-            $table_name,
-            array(
-                'user_id' => $user_id,
-                'commission_amount' => $commission,
-            ),
-            array( '%d', '%f' )
-        );
+    $referral_product_ids = explode(',', $referal_check_record->product_ids);
+
+    $common_product_ids = array_intersect($referral_product_ids,$product_ids);
+    
+    foreach ($common_product_ids as $common_product_id)
+    {
+        $perticular_matched_products[] = wc_get_product( $common_product_id );
     }
+
+    foreach ($perticular_matched_products as $perticular_matched_product)
+    {
+        $totals[] = $perticular_matched_product->get_price();
+    }
+
+    foreach ($totals as $total)
+    {
+        $commission =($total * 10) / 100;
+        $table_name = $wpdb->prefix . 'commissions';
+
+        // Check if the user has existing commissions.
+        $commission_record = $wpdb->get_row(
+            $wpdb->prepare( "SELECT * FROM $table_name WHERE user_id = %d", $referal_check_record->user_id )
+        );
+
+        // Update the existing commission or insert a new one.
+        if ( $commission_record ) {
+            $new_commission = $commission_record->commission_amount + $commission;
+
+            $wpdb->update(
+                $table_name,
+                array(
+                    'commission_amount' => $new_commission,
+                ),
+                array(
+                    'user_id' => $referal_check_record->user_id,
+                ),
+                array( '%f' ),
+                array( '%d' )
+            );
+        } else {
+            $wpdb->insert(
+                $table_name,
+                array(
+                    'user_id' => $referal_check_record->user_id,
+                    'commission_amount' => $commission,
+                ),
+                array( '%d', '%f' )
+            );
+        }
+    }
+ 
 }
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );
@@ -291,9 +324,9 @@ function wc_commission_process_referral_commission_on_order( $order ) {
         $order_product_ids[] = $item->get_product_id();
     }
     $referral_product_ids = explode( ',', $result->product_ids );
-    $differences          = array_diff( $order_product_ids, $referral_product_ids );
-
-    if ( ! empty( $differences ) ) {
+    $common_elements = array_intersect($referral_product_ids, $order_product_ids);
+    
+    if ( empty($common_elements) ) {
         return;
     }
 
@@ -301,7 +334,7 @@ function wc_commission_process_referral_commission_on_order( $order ) {
         return;
     }
 
-    $order->update_meta_data( 'referral_added', $result->user_id );
+    $order->update_meta_data( 'referral_added', $result->id );
     $order->save();
 }
 

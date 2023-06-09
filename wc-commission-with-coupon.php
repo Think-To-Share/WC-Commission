@@ -110,129 +110,27 @@ add_action( 'init', 'wc_commission_init' );
  * @param string $new_status The new order status.
  */
 function wc_commission_order_status_changed( $order_id, $old_status, $new_status ) {
-
-    
-
     if ( 'completed' === $new_status ) {
-
-        global $wpdb;
-        // Access order object.
-        $referral_code = 'REFF-' . strtoupper( wp_generate_password( 8, false ) );
         $order = wc_get_order( $order_id );
-        $product_ids = array();
-        $referral_links = array();
+
         // Validate order object.
         if ( ! $order && ! is_a($order, 'WC_Order') ) {
             return;
         }
 
-        foreach ( $order->get_items() as $item ) {
-            $product_ids[] = $item->get_product_id();
-            $referral_links[] = array(
-                'ref_link' => $item->get_product()->get_permalink().'?ref=' . $referral_code,
-                'product_name' => $item->get_product()->get_title()
-            );
-        }
-    
-
-        $table_name = $wpdb->prefix . 'commissions_referrals';
-        $wpdb->insert(
-        $table_name,
-            array(
-                'referral_code' => $referral_code,
-                'user_id' => $order->get_user_id(),
-                'product_ids' => implode( ',', $product_ids ),
-                'expiration_date' => date( 'Y-m-d', strtotime( '+1 month' ) ),
-            ),
-            array( '%s', '%d', '%s', '%s' )
-        );
-
+        // Trigger wc_commission_create_referral_code filter.
+        apply_filters( 'wc_commission_create_referral_code', $order);
        
-       // Check and apply commission.
+        // Check and apply commission.
         if ( $commission_user = apply_filters( 'wc_commission_check_commission', $order ) ) {
             // Trigger wc_commission_apply_commission filter.
             apply_filters( 'wc_commission_apply_commission', $order, $commission_user);
         }
-
-
-       do_action( 'woocommerce_commission_referral_code_created_notification', $order->get_id(), $order, $referral_links);
     }
 }
 
 add_action( 'woocommerce_order_status_changed', 'wc_commission_order_status_changed', 10, 3 );
 
-
-
-function wc_commission_check_order_placed_with_valid_cookie_ref_code( $order )
-{
-    global $wpdb;
-    $current_user_id = get_current_user_id();
-    $table_name = $wpdb->prefix . 'commissions_referrals';
-    
-    if(!(isset($_COOKIE['wc_commission_ref_code'])))
-    {
-        return;
-    }
-    else{
-
-        $refCode = $_COOKIE['wc_commission_ref_code'];
-        $result = $wpdb->get_row(
-            $wpdb->prepare("SELECT * FROM $table_name WHERE referral_code = %s",$refCode)
-        );
-
-
-        if($result) {
-
-            $order_product_ids = array();
-            foreach ( $order->get_items() as $item ) {
-            $order_product_ids[] = $item->get_product_id();
-            }
-            $referral_product_ids  = explode(',', $result->product_ids);
-            $differences = array_diff($order_product_ids, $referral_product_ids);
-
-            if(!empty($differences ))
-            {
-                return;
-            }
-
-            else{
-
-                if($result->user_id == $current_user_id)
-                {
-                    return;
-                }
-                else{
-                    $order->update_meta_data('referral_added', $result->user_id);
-                    $order->update_meta_data('referral_product_id', $referral_product_ids);
-                    $order->save(); 
-                }
-            }
-
-        }
-
-        else{
-            return;
-        }
-    }  
-
-    
-}
-
-add_action('woocommerce_checkout_order_created','wc_commission_check_order_placed_with_valid_cookie_ref_code',10, 1);
-
-
-function unset_commission_cookie(){
-
-    if (isset($_COOKIE['wc_commission_ref_code'])) {
-       unset($_COOKIE['wc_commission_ref_code']);
-       //print_r($_COOKIE['wc_commission_ref_code']);
-       setcookie('wc_commission_ref_code', '', time() - 3600, '/');
-    }
-
-}
-
-
-add_action('woocommerce_thankyou', 'unset_commission_cookie');
 /**
  * Check commission eligibility for the given WooCommerce Order.
  *
@@ -254,6 +152,39 @@ function wc_commission_check_commission( $order ) {
 }
 
 add_filter( 'wc_commission_check_commission', 'wc_commission_check_commission', 10, 1 );
+
+function wc_commission_create_referral_code( $order )
+{
+    global $wpdb;
+    // Access order object.
+    $referral_code = 'REFF-' . strtoupper( wp_generate_password( 8, false ) );
+    $product_ids = array();
+    $referral_links = array();
+    
+    foreach ( $order->get_items() as $item ) {
+        $product_ids[] = $item->get_product_id();
+        $referral_links[] = array(
+            'ref_link' => $item->get_product()->get_permalink().'?ref=' . $referral_code,
+            'product_name' => $item->get_product()->get_title()
+        );
+    }
+
+    $table_name = $wpdb->prefix . 'commissions_referrals';
+    $wpdb->insert(
+        $table_name,
+        array(
+            'referral_code' => $referral_code,
+            'user_id' => $order->get_user_id(),
+            'product_ids' => implode( ',', $product_ids ),
+            'expiration_date' => date( 'Y-m-d', strtotime( '+1 month' ) ),
+        ),
+        array( '%s', '%d', '%s', '%s' )
+    );
+
+    do_action( 'woocommerce_commission_referral_code_created_notification', $order->get_id(), $order, $referral_links);
+}
+
+add_filter( 'wc_commission_create_referral_code', 'wc_commission_create_referral_code', 10, 1 );
 
 /**
  * Apply commission for the given WooCommerce Order.
@@ -305,6 +236,18 @@ function wc_commission_apply_commission( $order, $user_id ) {
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );
 
+function wc_commission_unset_commission_cookie(){
+    if (! isset($_COOKIE['wc_commission_ref_code'])) {
+       return;
+    }
+
+    unset($_COOKIE['wc_commission_ref_code']);
+    setcookie('wc_commission_ref_code', '', time() - 3600, '/');
+}
+
+
+add_action('woocommerce_thankyou', 'wc_commission_unset_commission_cookie');
+
 
 
 /**
@@ -321,6 +264,48 @@ function wc_commission_woocommerce_email_classes($email_classes) {
 }
 
 add_filter('woocommerce_email_classes', 'wc_commission_woocommerce_email_classes');
+
+function wc_commission_process_referral_commission_on_order( $order ) {
+    global $wpdb;
+    $current_user_id = get_current_user_id();
+    $table_name      = $wpdb->prefix . 'commissions_referrals';
+
+    if ( ! isset( $_COOKIE['wc_commission_ref_code'] ) ) {
+        return;
+    }
+
+    $refCode = $_COOKIE['wc_commission_ref_code'];
+    $result  = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$table_name} WHERE referral_code = %s",
+            $refCode
+        )
+    );
+
+    if ( ! $result ) {
+        return;
+    }
+
+    $order_product_ids = array();
+    foreach ( $order->get_items() as $item ) {
+        $order_product_ids[] = $item->get_product_id();
+    }
+    $referral_product_ids = explode( ',', $result->product_ids );
+    $differences          = array_diff( $order_product_ids, $referral_product_ids );
+
+    if ( ! empty( $differences ) ) {
+        return;
+    }
+
+    if ( $result->user_id == $current_user_id ) {
+        return;
+    }
+
+    $order->update_meta_data( 'referral_added', $result->user_id );
+    $order->save();
+}
+
+add_action('woocommerce_checkout_order_created','wc_commission_process_referral_commission_on_order',10, 1);
 
 // Including extra files.
 require_once WC_COMMISSION_PLUGIN_PATH . 'includes/withdrawal.php';

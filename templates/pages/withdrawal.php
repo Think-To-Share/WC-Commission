@@ -17,10 +17,10 @@
 
 
 <?php
-    $the_query = new WP_Query( array( 'post_type' => 'withdrawal', 'author' => $user_id ) );
+    $the_query = new WP_Query( [ 'post_type' => 'withdrawal', 'author' => $user_id ] );
 
     // The Loop
-    if ( $the_query->have_posts() ): ?>
+    if ( $the_query->have_posts() ) { ?>
         <table>
             <thead>
                 <tr>
@@ -30,20 +30,21 @@
                 </tr>
             </thead> 
             <tbody>
-                <?php while ( $the_query->have_posts() ):  $the_query->the_post(); ?>
+                <?php while ( $the_query->have_posts() ) {
+                    $the_query->the_post(); ?>
                     <tr>
                         <td><?php echo get_the_date(); ?></td>
-                        <td><?php echo get_field('amount'); ?></td>
-                        <td><?php echo get_field('status'); ?></td>
+                        <td><?php echo get_field( 'amount' ); ?></td>
+                        <td><?php echo get_field( 'status' ); ?></td>
                     </tr>
-                <?php endwhile; ?>
+                <?php } ?>
             </tbody>
         </table>
 <?php
-    else:
-        echo "you did not apply for any withdrawal";
-    endif;
+    } else {
+        echo 'you did not apply for any withdrawal';
+    }
 
     /* Restore original Post Data */
     wp_reset_postdata();
-?>
+    ?>

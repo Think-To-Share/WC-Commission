@@ -16,24 +16,24 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
 			</tr>
 		</thead>
 		<tbody>
-            <?php foreach ($referral_links as $referral_link): ?>
+            <?php foreach ( $referral_links as $referral_link ) { ?>
 			<tr class="order_item">
 		        <td class="td" style="color: #636363; border: 1px solid #e5e5e5; padding: 12px; text-align: left; vertical-align: middle; font-family: 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif; word-wrap: break-word;" align="left">
-                   <?php echo wp_kses_post(sprintf($referral_link['product_name'])) ?>
+                   <?php echo wp_kses_post( sprintf( $referral_link['product_name'] ) ); ?>
                 </td>
                 <td class="td" style="color: #636363; border: 1px solid #e5e5e5; padding: 12px; text-align: left; vertical-align: middle; font-family: 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif; word-wrap: break-word;" align="left">
-                  <a href="<?php echo wp_kses_post(sprintf($referral_link['ref_link'])) ?>"><?php echo wp_kses_post(sprintf($referral_link['ref_link'])) ?><a>
+                  <a href="<?php echo wp_kses_post( sprintf( $referral_link['ref_link'] ) ); ?>"><?php echo wp_kses_post( sprintf( $referral_link['ref_link'] ) ); ?><a>
                 </td>
             </tr>
-	        <?php endforeach; ?>
+	        <?php } ?>
         </tbody>
 </table>
 
 
-<?php 
+<?php
 
 if ( $additional_content ) {
-	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
+    echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 }
 
 do_action( 'woocommerce_email_footer', $email ); ?>

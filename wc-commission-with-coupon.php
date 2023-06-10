@@ -4,7 +4,7 @@
  * Description: Create a new coupon during order placed
  * Author: Think To Share
  * Text Domain: wc-commission
- * Version: 1.2.0
+ * Version: 1.2.1
  */
 
 // Exit if accessed directly.
@@ -16,7 +16,7 @@ if ( !defined( 'ABSPATH' ) ) {
 define( 'WC_COMMISSION_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
 // Define plugin Version
-define( 'WC_COMMISSION_PLUGIN_VERSION', '1.2.0' );
+define( 'WC_COMMISSION_PLUGIN_VERSION', '1.2.1' );
 
 /**
  * Check if WooCommerce is active.
@@ -42,7 +42,7 @@ function wc_commission_create_commissions_table()
     $sql = "CREATE TABLE IF NOT EXISTS $table_name (
         id BIGINT(20) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         user_id BIGINT(20) UNSIGNED NOT NULL,
-        amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+        commission_amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
         status VARCHAR(20) NOT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES {$wpdb->prefix}users(ID)

@@ -4,8 +4,6 @@
  * Description: Create a new coupon during order placed
  * Author: Think To Share
  * Text Domain: wc-commission
- * License: GPLv2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Version: 1.2.0
  */
 

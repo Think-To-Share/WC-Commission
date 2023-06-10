@@ -2,7 +2,7 @@
     <legend><?php esc_html_e( 'Update Bank Details', 'wc-commission' ); ?></legend>
 
     <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
-        <label for="bank_account_name"><?php esc_html_e( 'Name of the Account', 'wc-commission' ); ?></label>
+        <label for="bank_account_name"><?php esc_html_e( 'Name of the Account Holder', 'wc-commission' ); ?></label>
         <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="bank_account_name" id="bank_account_name" autocomplete="off" value="<?php echo esc_attr( $user->bank_account_name ); ?>" />
     </p>
     <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">

@@ -4,7 +4,7 @@
  * Description: Create a new coupon during order placed
  * Author: Think To Share
  * Text Domain: wc-commission
- * Version: 1.2.1
+ * Version: 1.2.2
  */
 
 // Exit if accessed directly.
@@ -16,7 +16,7 @@ if ( !defined( 'ABSPATH' ) ) {
 define( 'WC_COMMISSION_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
 // Define plugin Version
-define( 'WC_COMMISSION_PLUGIN_VERSION', '1.2.1' );
+define( 'WC_COMMISSION_PLUGIN_VERSION', '1.2.2' );
 
 /**
  * Check if WooCommerce is active.

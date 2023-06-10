@@ -192,45 +192,31 @@ add_filter( 'wc_commission_create_referral_code', 'wc_commission_create_referral
  * @param WC_Order $order  The WooCommerce order object.
  * @param int      $user_id The user ID to apply the commission to.
  */
-function wc_commission_apply_commission( $order, $referral_added_id ) {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'commissions_referrals';
-    $totals = array();
-    $perticular_matched_products = array();
-    $product_ids = array();
+function wc_commission_apply_commission( $order, $referral_added_id = null ) {
+     global $wpdb;
+     $table_name = $wpdb->prefix . 'commissions_referrals';
+     $total = 0;
+     $product_ids = array();
+     $matched = false;
 
-    foreach ( $order->get_items() as $item ) {
-        $product_ids[] = $item->get_product_id();
-    }
-
+     $referal_check_record = $wpdb->get_row(
+         $wpdb->prepare(
+             "SELECT * FROM {$table_name} WHERE id = %d",
+             $referral_added_id
+         )
+     );
     
-
-    $referal_check_record = $wpdb->get_row(
-        $wpdb->prepare(
-            "SELECT * FROM {$table_name} WHERE id = %d",
-            $referral_added_id
-        )
-    );
-
-   
-
     $referral_product_ids = explode(',', $referal_check_record->product_ids);
 
-    $common_product_ids = array_intersect($referral_product_ids,$product_ids);
-    
-    foreach ($common_product_ids as $common_product_id)
-    {
-        $perticular_matched_products[] = wc_get_product( $common_product_id );
+    foreach ( $order->get_items() as $item ) {
+        if(in_array($item->get_product_id(),$referral_product_ids)) {
+            $total += $order->get_total();
+        } 
     }
+     ray( $total);
 
-    foreach ($perticular_matched_products as $perticular_matched_product)
-    {
-        $totals[] = $perticular_matched_product->get_price();
-    }
-
-    foreach ($totals as $total)
-    {
-        $commission =($total * 10) / 100;
+   if($total > 0){
+        $commission = ($total * 10) / 100;
         $table_name = $wpdb->prefix . 'commissions';
 
         // Check if the user has existing commissions.
@@ -263,8 +249,9 @@ function wc_commission_apply_commission( $order, $referral_added_id ) {
                 array( '%d', '%f' )
             );
         }
+    
     }
- 
+     
 }
 
 add_filter( 'wc_commission_apply_commission', 'wc_commission_apply_commission', 10, 2 );

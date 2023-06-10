@@ -213,7 +213,6 @@ function wc_commission_apply_commission( $order, $referral_added_id = null ) {
             $total += $order->get_total();
         } 
     }
-     ray( $total);
 
    if($total > 0){
         $commission = ($total * 10) / 100;
